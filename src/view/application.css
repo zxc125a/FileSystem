@@ -1,0 +1,7 @@
+/* JavaFX CSS - Leave this comment until you have at least create one rule which uses -fx-Property */
+/* Colors of JavaFX pie chart slices. */
+.data0.chart-pie { -fx-background-color: #87CEFA; }
+.data1.chart-pie { -fx-background-color: #D0D0D0; }
+
+/* Pie Chart legend background color and stroke. */
+.chart-legend { -fx-background-color: #F0F0F0; }
