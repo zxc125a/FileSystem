@@ -8,19 +8,19 @@ package model;
  *  folderNode：存储目录中8个目录项对应的索引,
  *  	1.folderNode[i] = 0, 表示空闲磁盘块
  *  	2.其他，folderNode[i]表示未被使用
- *
+ *  
  */
 
 public class Disk {
 	
-	String content;
-	FolderNode[] folderNode = new FolderNode[8];;
+	private String content;
+	private FolderNode[] folderNode = new FolderNode[8];;
 	
 	public Disk() {
 		
 		content = new String();
 		
-		for(int i = 0; i < 8; i++) {
+		for(int i = 0; i < 8; i++) { 
 			
 			folderNode[i] = new FolderNode();
 		}

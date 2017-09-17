@@ -38,7 +38,7 @@ public class FolderNode {
 
     /**
      *
-     */
+     */  
     public void initFolderNode(String nodePathName, String nodeType, int  nodeAttritute, 
     		int  nodeBeginDisk, int  nodeLength) {
     	

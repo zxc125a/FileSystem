@@ -18,6 +18,8 @@ import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import model.MyFile;
+import service.FileSystem;
+import util.StringMethod;
 import view.FileDirectoryTreeGraph.MyTreeItem;
 
 /**
@@ -41,6 +43,7 @@ public class FileDirectoryEditGraph extends FlowPane {
 	private static final String DEFAULT_COLOR = "#FFFFFF";
 	//右键菜单
 	private EditGraphMenu addMenu;
+	private static FileSystem fileSystem = FileSystem.getInstance();//文件系统单一实例
 	private boolean exist = false;
 
 	public FileDirectoryEditGraph() {
@@ -82,24 +85,23 @@ public class FileDirectoryEditGraph extends FlowPane {
 	}
 
 	//新建文件或新建文件夹
-	public FileDirectoryItem addFileDirectory(int attribute) {
+	public FileDirectoryItem addFileDirectory(int attribute, MyTreeItem parentItem) {
 		//创建文件或新建文件夹子项
-		FileDirectoryItem item = new FileDirectoryItem(attribute, this);
+		FileDirectoryItem item = new FileDirectoryItem(attribute, parentItem, this);
 		//添加
 		this.getChildren().add(item);
 		//返回
 		return item;
 	}
 
-	//添加已有文件或新建文件夹
+	//添加已有文件或新建文件夹 
 	public FileDirectoryItem addFileDirectory(MyTreeItem treeItem) {
 		//创建文件或新建文件夹子项
 		FileDirectoryItem item = new FileDirectoryItem(treeItem, this);
-		System.out.println("test2");
 		//添加
 		this.getChildren().add(item);
 		//返回
-		return item;
+		return item; 
 	}
 
 	//删除指定的已有文件或者文件夹
@@ -161,17 +163,18 @@ public class FileDirectoryEditGraph extends FlowPane {
 		private FileDirectoryMenu menu;	//右键菜单
 		private FileDirectoryItem item;	//实例
 		private MyTreeItem treeItem;	//文件目录树子项
+		private MyTreeItem parentItem;	//父结点
 		private Node parent;	//处的窗口
 
 		//构造	-- 用于新建文件或新建文件夹（接收参数为文件类型属性）
-		public FileDirectoryItem(int attribute, Node parent) {
+		public FileDirectoryItem(int attribute, MyTreeItem parentItem, Node parent) {
 			//接收参数
 			this.attribute = attribute;
+			this.parentItem = parentItem;
 			this.parent = parent;
 			//初始化
 			initItem();
 			//指向当前对象
-			System.out.println("test1");
 			item = this;
 		}
 
@@ -232,16 +235,14 @@ public class FileDirectoryEditGraph extends FlowPane {
 			renameField.setPrefWidth(90);
 			//保存重命�?
 			renameField.setOnAction(e->{
-				System.out.println("保存");
-				//显示名称
-				name.setText(renameField.getText());
-				this.getChildren().add(name);
-				//目录结点名称更新
-				treeItem.setValue(renameField.getText());
-				//移除重命名框
-				this.getChildren().remove(renameField);
+				  
+				boolean flag = updateFilename();
+				if(!flag) {
+					
+					System.out.println("已存在相同文件名");
+				}
 			});
-			
+//FIXME 设置文件名称			
 			//设置名称
 			if (treeItem != null) {
 				//如果目录子项不为空，则设置的信息来自子项
@@ -251,19 +252,19 @@ public class FileDirectoryEditGraph extends FlowPane {
 				this.getChildren().addAll(icon, name);
 			} else {
 				//创建目录树子项
-				System.out.println("test10");
-				this.treeItem = new MyTreeItem(attribute);
+				
+				this.treeItem = new MyTreeItem(attribute, parentItem);
 				//根据创建实例的不同，设置不同的信息
 				if (attribute == MyFile.FILE_VALUE) {
 					//设置文本信息
-					name.setText("新建文件.txt");
-					renameField.setText("新建文件.txt");
+					name.setText(this.treeItem.getFolderNode().getNodePathName());
+					renameField.setText(this.treeItem.getFolderNode().getNodePathName());
 					//添加图标和重命名�?
 					this.getChildren().addAll(icon, renameField);
 				} else if(attribute == MyFile.FOLDER_VALUE) {
 					//设置文本信息
-					name.setText("新建文件");
-					renameField.setText("新建文件夹");
+					name.setText(this.treeItem.getFolderNode().getNodePathName());
+					renameField.setText(this.treeItem.getFolderNode().getNodePathName());
 					//添加图标和重命名
 					this.getChildren().addAll(icon, renameField);
 				}
@@ -330,21 +331,57 @@ public class FileDirectoryEditGraph extends FlowPane {
 				}
 			});
 			
-			//点击重命名框之外的地方，保存重命�?
+			//点击重命名框之外的地方，保存重命名
 			this.parent.setOnMouseClicked(e->{
 				if (this.getChildren().contains(renameField)) {
 					if (!renameField.isHover()) {
-						//显示名称
-						name.setText(renameField.getText());
-						this.getChildren().add(name);
-						//目录结点名称更新
-						treeItem.setValue(renameField.getText());
-						//移除重命名框
-						this.getChildren().remove(renameField);
+						//修改文件名
+						boolean flag = updateFilename();
+						if(!flag) {
+							
+							System.out.println("已存在相同文件名");
+						}
 					}
 				}
 			});
 			
+		}
+		
+		/**
+		 * 描述：文件重命名操作，修改文件的名字
+		 * @return true 表示重命名成功,
+		 *  	   false 表示重命名失败
+		 */
+		private boolean updateFilename() {
+			
+			String fileName = null;
+			boolean flag = false;
+			System.out.println(treeItem.getFolderNode().getNodePathName());
+			if(renameField.getText().equals(treeItem.getFolderNode().getNodePathName())) {
+				//点击了重命名，但文件名未被修改
+				flag =  true;
+			} else {
+				
+				 flag = fileSystem.setFilename(treeItem.getPath(), renameField.getText());
+				
+				if(!flag) { 
+					
+					fileName = treeItem.getFolderNode().getNodePathName();
+				} else {
+					
+					fileName = renameField.getText();
+				}
+			}
+			fileName = treeItem.getFolderNode().getNodePathName();
+			//显示名称
+			name.setText(fileName);
+			this.getChildren().add(name);
+			//目录结点名称更新
+			treeItem.setValue(fileName);
+			//移除重命名框
+			this.getChildren().remove(renameField);
+			
+			return flag;
 		}
 
 		//右键菜单

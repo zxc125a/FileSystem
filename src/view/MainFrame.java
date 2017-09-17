@@ -31,7 +31,7 @@ import model.FAT;
 
 public class MainFrame extends Application {
 
-	private DiskPieGraph diskPieGraph;	//扇形磁盘分配�?
+	private static DiskPieGraph diskPieGraph;	//扇形磁盘分配�?
 	private static Stage stage;	//显示窗口
 	private static FileSystem fileSystem;  //文件管理系统
 	private static DiskBlockGraph diskBlockGraph;  //
@@ -59,7 +59,7 @@ public class MainFrame extends Application {
 			paintDiskBlocks();
 			//2. 创建扇形磁盘分配图
 			HBox diskGraphBox = new HBox();
-			diskPieGraph = new DiskPieGraph(3, 128);
+			diskPieGraph = DiskPieGraph.getInstance();
 			diskGraphBox.getChildren().addAll(blockBox, diskPieGraph);
 			//3. 将磁盘文件块分配表和扇形磁盘分配图添加到主界面中
 			managerGraph.getEditBox().getChildren().add(diskGraphBox);
@@ -76,28 +76,6 @@ public class MainFrame extends Application {
 			//FileDirectoryTreeGraph fileGraph = new FileDirectoryTreeGraph();
 			//root.setTop(fileGraph);
 
-			//改变扇形图的按钮
-			HBox hbox = new HBox();
-			TextField allocateFiled = new TextField();
-			allocateFiled.setPromptText("输入要分配的磁盘�?");
-			Button allocateButton = new Button("确定");
-			allocateButton.setOnMouseClicked(e->{
-				//获取分配磁盘块的位置
-				int position = Integer.parseInt(allocateFiled.getText());
-				//分配磁盘�?
-				diskBlockGraph.allocatedDiskBlock(position);
-			});
-			TextField changeFiled = new TextField();
-			changeFiled.setPromptText("输入改变�?");
-			Button changeButton = new Button("确定");
-			changeButton.setOnMouseClicked(e->{
-				//获取改变�?
-				double value =Double.parseDouble(changeFiled.getText());
-				//根据改变值更新扇形图
-				diskPieGraph.updatePieGraph(value);
-			});
-			hbox.setSpacing(5);
-			hbox.getChildren().addAll(allocateFiled, allocateButton, changeFiled, changeButton);
 
 			primaryStage.setTitle("FileSystem");
 			primaryStage.setScene(scene);
@@ -110,7 +88,7 @@ public class MainFrame extends Application {
 	/**
 	 * 描述： 在fat布局中描绘出fat表内容
 	 * 返回值：
-	 * 参数： FATGraph fatGraph
+	 * @param : FATGraph fatGraph
 	 */
 	public static void paintFat() {
 		
@@ -145,6 +123,19 @@ public class MainFrame extends Application {
 		blockBox.getChildren().addAll(title, diskBlockGraph);
 	}
 	
+	/**
+	 * 描述：重新渲染主界面
+	 */
+	public static void paintMainFrame() {
+		
+		//主界面中，中描绘出fat表内容
+		paintFat();
+		//主界面中渲染磁盘块分配矩阵
+		paintDiskBlocks();
+		//在主界面中渲染
+		diskPieGraph.updatePieGraph(fileSystem.getDisksUsedCapacity() - diskPieGraph.getAllocatedValue());
+		
+	}
 	//获取窗口对象
 	public static Stage getStage() {
 		return stage;

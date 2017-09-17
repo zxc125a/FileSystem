@@ -2,9 +2,13 @@ package view;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import com.sun.org.apache.bcel.internal.generic.ReturnaddressType;
+
 import model.FolderNode;
 import model.MyFile;
 import service.FileSystem;
+import util.StringMethod;
 import view.FileDirectoryTreeGraph.MyTreeItem;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
@@ -46,7 +50,7 @@ public class FileDirectoryTreeGraph extends TreeView<String> {
 	//初始化文件目录树
 	private void initTreeGraph () {
 		//添加�?个系统盘作为根结�?
-		MyTreeItem rootItem = new MyTreeItem(MyFile.SYSTEM_VALUE);
+		MyTreeItem rootItem = new MyTreeItem(MyFile.SYSTEM_VALUE, null);
 		//添加此结�?
 		this.setRoot(rootItem);
 		//展开根结�?
@@ -104,12 +108,7 @@ public class FileDirectoryTreeGraph extends TreeView<String> {
 		//获取要添加子结点的结点
 		selectedItem = (MyTreeItem) this.getSelectionModel().getSelectedItem();
 		//创建子结点
-		System.out.println("test8");
-		MyTreeItem childItem = new MyTreeItem(attribute);
-		
-		//初始化子节点信息并将子节点注册到文件目录登记项
-		FolderNode childFolderNode = initChildItem(attribute);
-		childItem.setFolderNode(childFolderNode);
+		MyTreeItem childItem = new MyTreeItem(attribute, selectedItem);
 		//添加到子结点集合
 		selectedItem.getChildList().add(childItem);
 		//如果是文件夹，则添加到目录树中，并且设置为中
@@ -132,70 +131,48 @@ public class FileDirectoryTreeGraph extends TreeView<String> {
 		//父结点�?�中
 		this.getSelectionModel().select(parentItem);
 	}
-    
-	
-	/**
-	 * 描述： 获取目录树中从根节点到该树节点的路径
-	 * 返回值： 返回相应路径
-	 * 参数： selectedItem  目录树中的子节点
-	 */
-	private  String getPathName(MyTreeItem selectedItem) {
-		
-	   StringBuilder sBuffer = new StringBuilder(); 
-	   sBuffer.append(selectedItem.getValue());
-	   String str= null;
-	   while(selectedItem.getParent() != null){
 
-		   selectedItem = (MyTreeItem)selectedItem.getParent();
-		   str = "";
-		   str = selectedItem.getValue() + "/";
-		   sBuffer.insert(0, str);
-	   }
-	   return sBuffer.toString();
-	}
-	
+
+
 	/**
 	 * 描述： 初始化当前路径中新建立的一个子节点
 	 * 返回值：新建立字节中的文件目录项实例，其中包含该子节点的相关属性和信息
 	 * @param childItem  新建立的子节点
 	 */ 
-	public  FolderNode initChildItem(int attribute) {
+	public  static FolderNode initChildItem(int attribute, String path) {
 		
-		//获取被选择节点的路径
-		String selectedItemPath = getPathName(selectedItem);
-		//获取子节点路径
-		StringBuilder childItemPath = new StringBuilder(selectedItemPath);
-		if(attribute == MyFile.FILE_VALUE) {
-			childItemPath.append("/" + "新建文件.txt") ;
-		} else {
-			childItemPath.append( "/" + "新建文件夹");
-		}
+		//去除路径中的'ROOT:'子串
+		String pathName = StringMethod.deleRootStr(path);
+		//根目录系统自带，无需初始化
+		if("\\".equals(pathName))
+			return null;
 		//子节点中的文件目录项信息
-		childItemPath.delete(0, 4);
-		FolderNode childFolderNode = fileSystem.createFile(childItemPath.toString());
+		FolderNode childFolderNode  = fileSystem.createFile(pathName);
 		return childFolderNode;
 	} 
-	
-	
+
 	//根据传入的参数创建文件夹结点或新建节点
 	static class MyTreeItem extends TreeItem<String> {
 
 		private int attribute;	//文件属属性
 		private FolderNode folderNode;  //目录登记项，记录该文件的信息
 		private List<MyTreeItem> childList;	 //子结点集合
+		private MyTreeItem parentItem;	//父结点
+		private String path;	//当前路径
+//FIXME 
+		public MyTreeItem(int attribute, MyTreeItem parentItem) {
 
-		public MyTreeItem(int attribute) {
-			
-			System.out.println("test9");
 			//初始化文件目录登记项
 			folderNode = new FolderNode();
 			//接收属性
 			this.attribute = attribute;
+			//接收父结点
+			this.parentItem = parentItem;
 			//初始化集合
 			this.childList = new ArrayList<MyTreeItem>();
 			//设置图标和名字
 			if (attribute == MyFile.FOLDER_VALUE) {
-				//文件�?
+				//设置文件夹名字
 				ImageView emptyIcon = new ImageView(new Image(getClass().getResourceAsStream(emptyFolderImageSrc)));
 				this.setGraphic(emptyIcon);
 				this.setValue("新建文件夹");
@@ -211,7 +188,7 @@ public class FileDirectoryTreeGraph extends TreeView<String> {
 					}
 				});
 			} else if (attribute == MyFile.FILE_VALUE) {
-				//文件
+				//设置文件名
 				ImageView icon = new ImageView(new Image(getClass().getResourceAsStream(fileImageSrc)));
 				this.setGraphic(icon);
 				this.setValue("新建文件.txt");
@@ -221,7 +198,13 @@ public class FileDirectoryTreeGraph extends TreeView<String> {
 				this.setGraphic(icon);
 				this.setValue("系统文件");
 			}
-			
+			//设置路径
+			this.path = getItemPath();
+			String fileName = getFileName(attribute);
+			this.setValue(fileName);
+			this.path = getItemPath();
+			//将新文件名登记到目录项中
+			folderNode = initChildItem(attribute, this.path);
 		}
 
 		//获取文件属性
@@ -234,6 +217,11 @@ public class FileDirectoryTreeGraph extends TreeView<String> {
 			return this.childList;
 		}
 		
+		//获取父结点
+		public MyTreeItem getParentItem() {
+			return this.parentItem;
+		}
+
 		//获取该节点的文件目录项
 		public FolderNode getFolderNode() {
 			return folderNode;
@@ -242,10 +230,76 @@ public class FileDirectoryTreeGraph extends TreeView<String> {
 		public void setFolderNode(FolderNode folderNode) {
 			this.folderNode = folderNode;
 		}
-		
 
+		//向上获取路径
+		private String getItemPath() {
+			//路径集合
+			List<String> pathList = new ArrayList<String>();
+			//当前子项
+			MyTreeItem temp = this;
+			//�?上获取路�?
+			while (temp.getParentItem() != null) {
+				pathList.add(temp.getValue());
+				temp = (MyTreeItem) temp.getParentItem();
+			} 
+			//获取完整路径
+			StringBuilder path = new StringBuilder("Root:\\");
+			if (pathList != null && pathList.size() > 0) {
+				for(int i = pathList.size()-1; i >= 0; i--) {
+					path.append(pathList.get(i));
+					if (i != 0) {
+						path.append("\\");
+					}
+				}
+			}
+			//返回路径
+			return path.toString();
+		}
 		
+		//获取当前路径
+		public String getPath() {
+			return this.path;
+		}
 		
+		/**
+		 * 描述： 返回一个文件名给新建的文件或文件夹
+		 * @param 文件属性
+		 * @return 一个文件或文件夹名
+		 */
+		private String getFileName(int attribute) {
+			
+			String pathName = this.getPath();
+			boolean flag = true;
+			String fileName = "新建文件";
+			if(attribute == MyFile.FILE_VALUE) 
+			{
+				fileName = "新建文件.txt";
+				for(int i = 1; i < 8; i++) 
+				{
+					flag = fileSystem.checkRename(pathName, fileName);
+					if(!flag)
+					{
+						break;
+					}
+					fileName = "新建文件 (" + i + " ).txt";
+				}
+			} else 
+			{
+				fileName = "新建文件";
+				for(int i = 1; i < 8; i++) 
+				{
+					flag = fileSystem.checkRename(pathName, fileName);
+					if(!flag)
+					{
+						break;
+					}
+					fileName = "新建文件夹 (" + i + " )";
+				}
+			}
+			
+			return fileName;
+		}
+
 	}
 
 	//根据传入的文件类型创建不同的右键菜单
@@ -263,11 +317,11 @@ public class FileDirectoryTreeGraph extends TreeView<String> {
 		private MenuItem attribute = new MenuItem("属性");
 
 		//构造函数
-		public MyContextMenu(int attribute) {
+		public MyContextMenu(int attribute) { 
 			if (attribute == MyFile.FOLDER_VALUE) {
 				//文件夹
 				this.createFolderMenu();
-			} else {
+			} else { 
 				//系统目录
 				this.createRootMenu();
 			}
@@ -319,8 +373,5 @@ public class FileDirectoryTreeGraph extends TreeView<String> {
 		}
 
 	}
-
-
-	
 
 }

@@ -14,6 +14,8 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontPosture;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
+import service.FileSystem;
+import util.StringMethod;
 
 /**
  * 此类为文件内容编辑窗�?
@@ -25,6 +27,13 @@ public class FileContentEditGraph extends Stage {
 	private FileMenuBar menuBar;	//菜单�? -- 包括保存等操�?
 	private TextArea contentArea;	//文本内容�?
 	private String fileName;	//窗口的名称，也是文件的名�?
+	private String pathName;    //文件路径
+	
+	//获取文件路径
+	public String getPathName() {
+		return pathName;
+	}
+
 	private static final int STAGE_WIDTH = 800;	//文本编辑器默认宽�?
 	private static final int STAGE_HEIGHT = 500;	//文本编辑器默认高�?
 
@@ -33,14 +42,30 @@ public class FileContentEditGraph extends Stage {
 		//初始化窗�?
 		this("无标题");
 	}
-
+ 
 	public FileContentEditGraph(String filaname) {
 		//接受参数
 		this.fileName = filaname;
+		System.out.println(filaname);
 		//初始化窗�?
-		this.initGraph();
+		this.initGraph(); 
 	}
-
+	
+	public FileContentEditGraph(String filename, String pathName) {
+		
+		//初始化
+		this(filename);
+		//初始化文件路径
+		this.pathName = pathName;
+	}
+	
+	/**
+	 * 描述：关闭文本编辑器
+	 */
+	private void closeStage() {
+		
+		this.close();
+	}
 	//初始化视�?
 	private void initGraph() {
 		VBox root = new VBox();
@@ -86,6 +111,7 @@ public class FileContentEditGraph extends Stage {
 		private FontWeight weight = FontWeight.NORMAL;	//默认标准字形
 		private FontPosture posture = FontPosture.REGULAR;
 		private Double size = 14.0;	//默认字体大小14
+		private FileSystem fileSystem;
 
 		//构�?�函�?
 		public FileMenuBar() {
@@ -95,6 +121,9 @@ public class FileContentEditGraph extends Stage {
 
 		//初始化菜单栏
 		private void initMenuBar() {
+			
+			//获取文件系统对象
+			fileSystem = FileSystem.getInstance();
 			//文件操作菜单
 			this.fileOper = new Menu("文件");	//菜单
 			this.save = new MenuItem("保存");	//菜单�?
@@ -233,8 +262,63 @@ public class FileContentEditGraph extends Stage {
 				}
 			});
 			
+			//为文本编辑器菜单栏中保存菜单项添加点击事件
+			addSaveActionEvent();
+			//为文本编辑器菜单栏中保存并退出菜单项添加点击事件
+			addSaveAndExitEvent();
+			//为文本编辑器菜单栏中退出菜单项添加点击事件
+			addExitEvent();
+			
+		}
+	  /**
+		* 描述： 为文本编辑器菜单栏中保存菜单项添加点击事件
+		*/
+		private void addSaveActionEvent() {
+			
+			this.save.setOnAction(e->{
+				
+				String buffer = contentArea.getText();
+				//规范文件路径
+				String path = StringMethod.deleRootStr(pathName);
+				//将文本编辑器中的内容保存到磁盘中
+				fileSystem.storeIntoFile(path, buffer);
+				//渲染主界面
+				MainFrame.paintMainFrame();
+			});
 		}
 
+		/**
+		 * 描述： 为文本编辑器菜单栏中保存并退出菜单项添加点击事件
+		 * @return
+		 */
+		private void addSaveAndExitEvent() {
+			
+			this.saveExit.setOnAction(e->{
+				
+				String buffer = contentArea.getText();
+				//规范文件路径
+				String path = StringMethod.deleRootStr(pathName);
+				//将文本编辑器中的内容保存到磁盘中
+				fileSystem.storeIntoFile(path, buffer);
+				//渲染主界面
+				MainFrame.paintMainFrame();
+				//关闭文本编辑器
+				closeStage();
+			});
+		}
+		
+		/**
+		 * 描述： 为文本编辑器菜单栏中保存并退出菜单项添加点击事件
+		 * @return
+		 */
+		private void addExitEvent() {
+			
+			this.exit.setOnAction(e->{
+				
+				closeStage();
+			});
+		}
+		
 		//获取菜单
 		public Menu getFileOper() {
 			return fileOper;
@@ -250,4 +334,9 @@ public class FileContentEditGraph extends Stage {
 
 	}
 
+	//获取文本编辑器中的文本域对象
+	public TextArea getContentArea() {
+		
+		return this.contentArea;
+	}
 }

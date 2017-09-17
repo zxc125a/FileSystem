@@ -6,6 +6,8 @@ import java.util.List;
 import model.MyFile;
 import service.FileSystem;
 import sun.applet.Main;
+//import sun.applet.Main;
+import util.StringMethod;
 import view.FileDirectoryEditGraph.FileDirectoryItem;
 import view.FileDirectoryTreeGraph.MyTreeItem;
 //import graph.FileDirectoryEditGraph.FileDirectoryItem;
@@ -35,9 +37,11 @@ public class FileManagerGraph extends BorderPane {
 	private FileDirectoryTreeGraph treeGraph;	//文件目录�?
 	private FileDirectoryEditGraph editGraph;	//文件编辑窗口集合
 	private VBox editBox;	//为了扩展，增加编辑布�?
-	private MyTreeItem rootItem;	//根结�?
+	public static MyTreeItem rootItem;	//根结�?
 	private MyTreeItem currentItem;	//当前选中进入的子�?
-	private FileSystem fileSystem = FileSystem.getInstance();
+	private FileSystem fileSystem = FileSystem.getInstance();	
+	public static String currentPath = "Root:\\";	//获取当前路径
+	
 	//构�?�函�?
 	public FileManagerGraph() {
 		//初始�?
@@ -90,52 +94,52 @@ public class FileManagerGraph extends BorderPane {
 				//鼠标左键点击事件
 				//获取选中的子�?
 				MyTreeItem selectedItem = (MyTreeItem) this.treeGraph.getSelectionModel().getSelectedItem();
-				//更新
+				//更新  
 				if (selectedItem != this.currentItem) {
 					//转换路径
 					this.transformPath(selectedItem);
 				}
 			}
+  
 		});
 		//目录树中右键菜单项中的新建文件夹菜单项
 		this.treeGraph.getRootMenu().getAddFolder().setOnAction(e->{ //FIXME
 			//添加文件夹到编辑窗口-----1
 			this.addFolderToEditGraph();
-			//渲染FAT分配表
-			MainFrame.paintFat();
-			//渲染磁盘块分配表
-			MainFrame.paintDiskBlocks();
+			//重新渲染主界面
+			MainFrame.paintMainFrame();
+			
 		});
 		this.treeGraph.getFolderMenu().getAddFolder().setOnAction(e->{
 			//添加文件夹到编辑窗口
 			this.addFolderToEditGraph();
-			//渲染FAT分配表
-			MainFrame.paintFat();
-			//渲染磁盘块分配表
-			MainFrame.paintDiskBlocks();
+			//重新渲染主界面
+			MainFrame.paintMainFrame(); 
 		});
 		this.treeGraph.getRootMenu().getDelete().setOnAction(e->{
 			//从编辑窗口删除指定文�?
-			this.removeItemFromEditGraph();
+			this.removeItemFromEditGraph(); 
+			MainFrame.paintMainFrame(); 
 		});
 		this.treeGraph.getFolderMenu().getDelete().setOnAction(e->{
 			//从编辑窗口删除指定文�?
 			this.removeItemFromEditGraph();
+			MainFrame.paintMainFrame(); 
 		});
 	}
 
 	//往编辑窗口添加文件夹
-	private void addFolderToEditGraph() { //-----1
+	private void addFolderToEditGraph() { 
 		//获取选中的子项
 		MyTreeItem selectedItem = (MyTreeItem) this.treeGraph.getSelectionModel().getSelectedItem();
 		//目录树添加子结点
-		this.treeGraph.addChildItem(MyFile.FOLDER_VALUE);  //----2
+		this.treeGraph.addChildItem(MyFile.FOLDER_VALUE);
 		//如果添加子项结点路径与当前一致，则编辑窗口也要添加子项
 		if (selectedItem == this.currentItem) {
 			//获取选中的子项
 			selectedItem = (MyTreeItem) this.treeGraph.getSelectionModel().getSelectedItem();
 			//编辑窗口添加文件
-			this.addItemToEditGraph(selectedItem);   //----3
+			this.addItemToEditGraph(selectedItem);  
 		}
 	}
 
@@ -143,6 +147,10 @@ public class FileManagerGraph extends BorderPane {
 	private void removeItemFromEditGraph() {
 		//获取选中的子�?
 		MyTreeItem selectedItem = (MyTreeItem) this.treeGraph.getSelectionModel().getSelectedItem();
+		//规范化文件路径 
+		String path = StringMethod.deleRootStr(selectedItem.getPath());
+		//删除文件系统中的对应文件的数据  
+		fileSystem.deleFile(path); 
 		//从子结点集合中删除当前结�?
 		MyTreeItem parentItem = (MyTreeItem) selectedItem.getParent();
 		parentItem.getChildList().remove(selectedItem);
@@ -182,19 +190,23 @@ public class FileManagerGraph extends BorderPane {
 		//设置新建文件和新建文件夹的事件
 		this.editGraph.getAddMenu().getAddFile().setOnAction(e->{
 			//编辑窗口添加文件
-			System.out.println("test6");
 			FileDirectoryItem item = this.addItemToEditGraph(MyFile.FILE_VALUE);
-			//将结点加入子结点集合
+			MyTreeItem selectedItem = (MyTreeItem) this.treeGraph.getSelectionModel().getSelectedItem();
+			selectedItem.getPath();  
+			//将结点加入子结点集合  
 			this.currentItem.getChildList().add(item.getTreeItem());
+			//重新渲染主界面
+			MainFrame.paintMainFrame();
 		});
 		this.editGraph.getAddMenu().getAddFolder().setOnAction(e->{
 			//编辑窗口添加文件�?
-			System.out.println("test7");
 			FileDirectoryItem item = this.addItemToEditGraph(MyFile.FOLDER_VALUE);
 			//将结点加入子结点集合
 			this.currentItem.getChildList().add(item.getTreeItem());
 			//目录树添加文件夹结点
 			this.currentItem.getChildren().add(item.getTreeItem());
+			//重新渲染主界面
+			MainFrame.paintMainFrame();  
 		});
 	}
 
@@ -204,7 +216,6 @@ public class FileManagerGraph extends BorderPane {
 		FileDirectoryItem item = this.editGraph.addFileDirectory(treeItem);
 		//子项添加事件
 		this.addActionToEditGraphItem(item);
-		System.out.println("test4");
 		//返回
 		return item;
 	}
@@ -212,9 +223,8 @@ public class FileManagerGraph extends BorderPane {
 	//给定文件类型参数在编辑窗口添加一个子�?
 	private FileDirectoryItem addItemToEditGraph(int attribute) {
 		//�?编辑窗口添加子项
-		FileDirectoryItem item = this.editGraph.addFileDirectory(attribute);
+		FileDirectoryItem item = this.editGraph.addFileDirectory(attribute, currentItem);
 		//子项添加事件
-		System.out.println("test5");
 		this.addActionToEditGraphItem(item);
 		//返回
 		return item;
@@ -226,6 +236,11 @@ public class FileManagerGraph extends BorderPane {
 		MyTreeItem treeItem = item.getTreeItem();
 		//删除菜单项事�?
 		item.getMenu().getDelete().setOnAction(e->{
+			
+			//规范化文件路径 
+			String path = StringMethod.deleRootStr(treeItem.getPath());
+			//删除文件系统中的对应文件的数据
+			fileSystem.deleFile(path); 
 			//从子结点集合中删除此结点
 			this.currentItem.getChildList().remove(treeItem);
 			//如果是文件夹，从目录树种删除相关联的结点
@@ -234,61 +249,48 @@ public class FileManagerGraph extends BorderPane {
 			}
 			//从编辑窗口删除当前子�?
 			this.editGraph.getChildren().remove(item);
+			//重新渲染整个界面
+			MainFrame.paintMainFrame();
 		});
 		//打开菜单项事�?
-		item.getMenu().getOpen().setOnAction(e->{
-			//打开文本编辑器
+//FIXME			
+		item.getMenu().getOpen().setOnAction(e->{ 
+			//目录编辑框中，右键菜单打开项，打开文本编辑器
 			openMenuDeal(item, treeItem);
-			String pathName = getPathName(selectedItem);
-			openFile(String pathName);
+
 		});
 		//双击事件
 		item.setOnMouseClicked(e->{
 			if (e.getClickCount() == 2) {
 				//打开文本编辑器
-				openMenuDeal(item, treeItem);
-				openFile(String pathName);
+				openMenuDeal(item, treeItem); 
 			}
 		});
 	}
 
-	/**
-	 * 描述： 获取从根节点到当前树子节点的路径
-	 * 返回值： 返回相应路径
-	 * 参数： selectedItem  目录树中的子节点
-	 */
-	private String getPathName(MyTreeItem selectedItem) {
-		
-	   StringBuilder sBuffer = new StringBuilder(); 
-	   sBuffer.append(selectedItem.getValue());
-	   String str= null;
-	   while(selectedItem.getParent() != null){
-
-		   selectedItem = (MyTreeItem)selectedItem.getParent();
-		   str = "";
-		   str = selectedItem.getValue() + "/";
-		   sBuffer.insert(0, str);
-	   }
-	   
-	   return sBuffer.toString();
-	}
-	
 	/**
 	 * 描述： 编辑框中对文件或目录右键点击打开菜单项或双击文件时，处理器所执行的方法
 	 * 返回值：
 	 * 参数：
 	 * @param item  编辑框对象
 	 * @param treeItem 当前文件/目录节点
+	 * 
 	 */
 	private void openMenuDeal(FileDirectoryItem item, MyTreeItem treeItem) {
 		
 		if (treeItem.getAttribute() == MyFile.FILE_VALUE) {
-			//如果是文件对象，则打�?编辑窗口
-			Stage editStage = new FileContentEditGraph(item.getName().getText());
+			//如果是文件对象，则打文本编辑窗口
+			FileContentEditGraph  editObject = new FileContentEditGraph(item.getName().getText(), treeItem.getPath());
+			//规范化文件路径，去除路径中的'ROOT:'子串
+			String pathName = StringMethod.deleRootStr(treeItem.getPath());
+			//从后台获取文件内容
+			String strBuffer = fileSystem.openFile(pathName);
+			editObject.getContentArea().setText(strBuffer); 
+			Stage editStage = editObject;
 			editStage.show();
 		} else if (treeItem.getAttribute() == MyFile.FOLDER_VALUE) {
 			//如果是文件夹，则转换路径到下�?�?
-			this.transformPath(treeItem);
+			this.transformPath(treeItem); 
 		}
 	}
 	
@@ -325,7 +327,8 @@ public class FileManagerGraph extends BorderPane {
 			});
 
 			//创建路径�?
-			pathField = new TextField(getPath());
+			FileManagerGraph.currentPath = getPath();
+			pathField = new TextField(FileManagerGraph.currentPath);
 			pathField.setMinWidth(600);
 			//路径提示
 			Label pathLabel = new Label("当前路径�?");
@@ -370,7 +373,8 @@ public class FileManagerGraph extends BorderPane {
 			//更新当前子项
 			this.currentItem = currentItem;
 			//更新路径
-			this.pathField.setText(getPath());
+			FileManagerGraph.currentPath = getPath();
+			this.pathField.setText(FileManagerGraph.currentPath);
 		}
 
 	}

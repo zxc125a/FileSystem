@@ -17,8 +17,7 @@ public class FAT {
 		item[0] = -1;
 		item[1] = -1;
 		item[2] = -1;
-		item[3] = -1;
-		for(int i = 4; i < 128; i++) {
+		for(int i = 3; i < 128; i++) {
 			
 			item[i] = 0;
 		}
@@ -95,7 +94,7 @@ public class FAT {
 		
 		int n = 0;
 		for(int i = 3; i < 128; i++) {
-			
+			 
 			if(item[i] == 0) n++;
 		}
 		

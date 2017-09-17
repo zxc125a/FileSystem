@@ -15,6 +15,11 @@ public class FileSystem {
 	private FAT fat; //fat表
 	private ArrayList<OpenFile> openFiles;//已打开文件列表
 	private Disk[] disks = new Disk[128]; //声明磁盘盘块
+	private int disksUsedCapacity;   //磁盘已用容量
+	private int diskFreeCapaciyty;   //磁盘未使用容量
+	private final  int disksTotalCapacity = 128* 64; 
+
+
 	private static FileSystem fileSystem;
 	public static final int FOLDER_VALUE = 12;
 	public static final int FILE_VALUE = 3;
@@ -27,13 +32,17 @@ public class FileSystem {
 		//初始化已打开文件列表
 		openFiles = new ArrayList<OpenFile>();
 		//默认打开根目录
-	    OpenFile openFile = initOpenFile(2, "/");
+	    OpenFile openFile = initOpenFile(2, "\\");
 	    openFiles.add(openFile);
 		//为每一个盘块分配空间
 		for(int i = 0; i < 128; i++) {
 			
 			disks[i] = new Disk();
 		}
+		
+		//初始化磁盘空间容量,创建根目录多调用一次updateDisksCapacity(-8)方法
+		disksUsedCapacity = 3 * 64 - 8;
+		diskFreeCapaciyty = 64 * 128 - 3 * 64 + 8;
 	}
 	
 	
@@ -60,7 +69,6 @@ public class FileSystem {
 		this.fat = fat;
 	}
 
-
 	public ArrayList<OpenFile> getOpenFiles() {
 		return openFiles;
 	}
@@ -82,13 +90,6 @@ public class FileSystem {
 		
 		FileSystem fileSystem = FileSystem.getInstance();
 		//新建文件
-		fileSystem.createFile("/1");
-		fileSystem.createFile("/1/1.txt");
-		fileSystem.openFile("/1/1.txt");
-		fileSystem.openFile("/");
-		fileSystem.openFile("/2");
-		fileSystem.openFile("/2/3");
-		fileSystem.openFile("/2.txt");
 		for(int i = 0; i < fileSystem.fat.getItem().length; i++) {
 			
 			System.out.println(fileSystem.fat.getItem()[i]);
@@ -97,17 +98,17 @@ public class FileSystem {
 	
 	/** 
 	 * 描述：新建文件/目录基本操作
-	 * 返回值：新建的文件或目录的文件目录登记项，保存其信息, 新建失败，则返回null
-	 * 参数： pathName 文件路径
+	 * @return：新建的文件或目录的文件目录登记项，保存其信息, 新建失败，则返回null
+	 * @param： pathName 文件路径
 	 */
 	public FolderNode createFile(String pathName) {
 		
 		//1. 检查文件目录，确认无重名文件和空文件名
 		int folderIndex =  pathSearch(pathName);
-		if(folderIndex == -1) {System.out.println("所给路径错误！"); return null;}
-		if(folderIndex == 0)  {System.out.println("存在名字相同的文件"); return null;}
+		if(folderIndex == -1) {System.out.println("createFile时，所给路径错误！"); return null;}
+		if(folderIndex == 0)  {System.out.println("createFile时，存在名字相同的文件"); return null;}
 		//获取文件名字
-		String[] pathArray = pathName.split("/");
+		String[] pathArray = pathName.split("\\\\");
 		String fileName = new String(pathArray[pathArray.length - 1]);
 		//2. 可以新建文件，寻找空闲登记项
 		int n = Tool.remaindedCapacity(disks, folderIndex);
@@ -125,7 +126,6 @@ public class FileSystem {
 		}
 		//4. 找到一个空闲磁盘块,并分配磁盘块个给新建立的文件
 		int freeDisk = fat.getFreeDisk();
-		
 		fat.getItem()[freeDisk] = -1;
 		//5. 在工作目录中，登记新建立的文件/目录
 		int nodeAttritute = 0;
@@ -141,33 +141,37 @@ public class FileSystem {
 		if(nodeAttritute == FILE_VALUE) {
 			
 			System.out.println("创建文件成功");
+			updateDisksCapacity(-8);
+			
 		} else {
 			
+			
 			System.out.println("创建目录成功");
+			updateDisksCapacity(-8);  
+
 		}
-		
 		return disks[folderIndex].getFolderNode()[n];
 	}
 	
 	/**
 	 *描述：实现打开文件操作，并从磁盘中读取文件内容
-	 *返回值： 无
-	 *参数： pathName : 文件路径名
+	 *@return： 无
+	 *@param： pathName : 文件路径名
 	 */
-	public void openFile(String pathName) {
+	public String openFile(String pathName) {
 		
 		//1. 首先要检查该文件是否存在
-		int folderIndex  = pathSearch(pathName);
-		if(folderIndex != 0 && folderIndex != 2)  {System.out.println("打开文件失败，文件路径有误!!!"); return;}
+		int folderIndex  = pathSearch(pathName); 
+		if(folderIndex != 0 && folderIndex != 2)  {System.out.println("打开文件失败，文件路径有误!!!"); return null;}
 		//2. 如果文件存在，还要检查打开方式，确保不能以写方式打开只读文件
 		//
 		//3. 最后填写已打开文件表，若文件已经打开或者超过打开文件的数量，则不需要填写已打开文件表
-	    if(openFiles.size() > 5) {System.out.println("打开文件失败，文件打开数量过多"); return;} //文件数量不能超过5
+	    if(openFiles.size() > 5) {System.out.println("打开文件失败，文件打开数量过多"); return null;} //文件数量不能超过5
 	  
-	    //4.文件是否已经打开,未打开过则，则需要添加到已打开文件列表中
+	    //4.文件是否已经打开,未打开过则需要添加到已打开文件列表中
 	    int beginDiskIndex = getBeginDiskNum(pathName);//获取文件在起始磁盘块号
 	    //如果是文件，则需要判断该文件是否已经打开 
-	    if(beginDiskIndex == 0) {System.out.println("打开文件失败，文件路径有误!!!"); return; }
+	    if(beginDiskIndex == 0) {System.out.println("打开文件失败，文件路径有误!!!"); return null; }
 	    if(pathName.endsWith(".txt")) {
 	    	
 		    if(!judgeOpenFile(pathName)) {
@@ -184,20 +188,19 @@ public class FileSystem {
 	    	StringBuilder sbBuilder  = new StringBuilder(); //根据起始磁盘盘块号，读取文件内容到缓冲区中
 		    sbBuilder.append(getFileContent(beginDiskIndex));
 		    //输出文件内容
-		    System.out.println(sbBuilder.toString());
-		    System.out.println("打开文件成功！！！");
-		    return;
+		    return sbBuilder.toString(); 
 	    } else {
 	    	//显示目录内容
 	    	System.out.println("打开目录成功！！！");
+	    	return null;
 	    }
 
 	}
 
 	/**
 	 * 描述： 关闭文件
-	 * 返回值：无
-	 * 参数：pathName 文件路径
+	 * @return：无
+	 * @param：pathName 文件路径
 	 */
 	public void closeFile(String pathName, String content) {
 		
@@ -208,10 +211,10 @@ public class FileSystem {
 	    if(checkFileAttribute(pathName) == 0) {return;} //读打开方式，不用存储数据
 	    //3. 写打开方式,存储数据
 	    int len = storeIntoDisk(pathName, content);
-	    //4.修改目录项长度
+	    //4.修改目录项中文件登记的长度
 	    FolderNode folderNode = getFolderNode(pathName);
 	    if(folderNode == null) {System.out.println("获取目录登记项失败！！！");  return;}
-	    folderNode.setNodeLength((int)len);
+	    folderNode.setNodeLength(len);
 	    //5.从已打开文件表中删除对应项
 	    boolean flag = removeOpenFile(beginDiskIndex);
 	    if(!flag) {
@@ -226,8 +229,8 @@ public class FileSystem {
 	
 	/**
 	 * 描述： 删除文件
-	 * 返回值：删除成功，则返回true, 否则返回false
-	 * 参数： pathName  文件路径 
+	 * @return：删除成功，则返回true, 否则返回false
+	 * @param： pathName  文件路径 
 	 */
 	public void deleFile(String pathName) {
 		
@@ -237,21 +240,90 @@ public class FileSystem {
 		if(beginDisk == 0) {System.out.println("文件不存在"); return;}
 		//2. 验证文件是否打开
 		if(judgeOpenFile(pathName)) {System.out.println("文件已经打开，不能删除"); return;}
-		//3. 删除目录中的目录项
+		//3. 删除目录中的目录项并释放文件磁盘空间
 		if(!deleFolderNode(pathName)) {System.out.println("文件在目录中登记项删除失败"); return;}
-		//4. 释放文件磁盘空间
+		//4. 修改FAT表
 		if(!freeDiskCapacity(beginDisk)) {System.out.println("文件磁盘空间释放失败"); return;}
 		System.out.println("文件删除成功！！！");
 		return;
 	}
 
+	/**
+	 * 描述： 将文本编辑器中的内容保存到文件中
+	 * @param
+	 */
+	public void storeIntoFile(String pathName, String content) {
+		
+		 //将文件内容存到磁盘中
+		 int len = storeIntoDisk(pathName, content);
+		 //修改目录项中文件登记的长度
+		 FolderNode folderNode = getFolderNode(pathName);
+		 if(folderNode == null) {System.out.println("获取目录登记项失败！！！");  return;}
+		 folderNode.setNodeLength(len);
+		 return;
+	}
+
+	/**
+	 * 描述： 为文件设置新的文件名
+	 * @param pathName 文件所在的路径
+	 * @param newName 新的文件名
+	 */
+	public boolean setFilename(String pathName, String newName) {
+		
+		//验证是否存在重名文件
+		boolean flag = checkRename(pathName, newName);
+		if(flag) return false;  //存在重名文件，返回false
+		//1. 获取文件所在工作目录对应的磁盘块号
+		StringBuilder path = new StringBuilder(pathName);
+		path.append(".");
+		int diskNum = pathSearch(path.toString());
+		//2. 根据文件路径获取原文件名
+		String fileName = StringMethod.getFileName(pathName);
+		//3. 验证工作目录中是否存在于新文件名重名的文件
+		int n = 0;
+		for(int i = 0; i < 8; i++) {
+
+			if(fileName.equals(disks[diskNum].getFolderNode()[i].getNodePathName())) {
+				//记录文件所在目录项的位置
+				n = i;
+			}
+		}
+		//4. 无重名文件，则设置新名字
+		disks[diskNum].getFolderNode()[n].setNodePathName(newName);
+		return true;
+	}
 	
-//--------------------------------------------------------------------------------------//
+	/**
+	 * 描述：  验证工作目录中是否存在于新文件名重名的文件
+	 * @param pathName 文件所在的路径
+	 * @param newName 新的文件名
+	 * @return true 表示存在重名文件
+	 *         false 表示不存在重名文件
+	 */
+	public boolean checkRename(String pathName, String newName) {
+		 
+		 //1. 获取文件所在工作目录对应的磁盘块号
+		StringBuilder path = new StringBuilder(pathName);
+		path.append(".");
+		int diskNum = pathSearch(path.toString());
+		//2. 验证工作目录中是否存在与新文件名重名的文件
+		for(int i = 0; i < 8; i++) {
+					
+			if(newName.equals(disks[diskNum].getFolderNode()[i].getNodePathName())) {
+				//存在重名文件，则返回false
+				return true;
+			}
+		}
+		
+		return false;
+	 }
+	
+	//--------------------------------------------------------------------------------------//
 	
 	/**
 	 * 描述：给出文件路径名来获取文件的起始磁盘块号
-	 * 返回值：根路径，则返回2,文件不存在则返回0,否则返回文件的磁盘盘块号
-	 * 参数：pathName：文件路径名
+	 * @return：根路径，则返回2,文件不存在则返回0,否则返回文件的磁盘盘块号
+	 * @param：pathName：文件路径名
 	 */
 	private int getBeginDiskNum(String pathName) {
 		
@@ -263,8 +335,8 @@ public class FileSystem {
 		int diskNum = pathSearch(pathName);
 		if(diskNum != 0) {return 0;} //文件路径有误
 		//1. 获取文件工作目录对应
-		int length = pathName.split("/").length;
-		String fileName = pathName.split("/")[length - 1];
+		int length = pathName.split("\\\\").length;
+		String fileName = pathName.split("\\\\")[length - 1];
 		pathName += ".";
 		diskNum = pathSearch(pathName);  //文件名不存在，返回该文件的工作目录所在的磁盘块号
 		//2. 获取文件名
@@ -281,22 +353,21 @@ public class FileSystem {
 		return 0;
 	} 
 	
-	
 	/**
 	 * 描述：给定文件路径名，返回该文件所在工作目录的磁盘块号
-	 * 返回值：不存在文件对应路径，则返回 -1，若找到同路径名文件，则返回0，返回2，表示返回根目录的磁盘块号，否则返回文件工作目录所在的磁盘盘块号
+	 * @return：不存在文件对应路径，则返回 -1，若找到同路径名文件，则返回0，返回2，表示返回根目录的磁盘块号，否则返回文件工作目录所在的磁盘盘块号
 	 * 
-	 * 参数：pathName：文件路径名
+	 * @param：pathName：文件路径名
 	 */
 	private int pathSearch(String pathName) {
 		
 		//返回根目录所在的磁盘块
-		if("/".equals(pathName)) {
+		if("\\".equals(pathName)) {
 			
 			return 2;
 		}
 		//1. 获取文件名
-		String[] pathArray = pathName.split("/");
+		String[] pathArray = pathName.split("\\\\");
 		String fileName = new String(pathArray[pathArray.length - 1]);
 		//若文件名为空，则返回-1；
 		if(StringMethod.isEmpty(pathName)) {
@@ -361,26 +432,20 @@ public class FileSystem {
 		}
 	} 
 	
-	
 	/**
 	 * 描述：给出文件起始盘块号，返回文件的内容
-	 * 返回值：返回文件内容
-	 * 参数：diskNum 文件起始盘块号
+	 * @return：返回文件内容
+	 * @param：diskNum 文件起始盘块号
 	 */
-	public String getFileContent(int diskNum) {
+	private String getFileContent(int diskNum) {
 		
 		//1. 设置缓冲区
-		String sBuffer = new String();
+		StringBuilder sBuffer = new StringBuilder();
 		String str = null;
 		//2. 根据起始盘块号，读取磁盘中文件的内容
 		while(diskNum != -1) {
 			
-			str  = new String(disks[diskNum].getContent());
-			if(StringMethod.isEmpty(str)) {
-			
-				str = "";
-			}
-			sBuffer += str;
+			sBuffer.append(disks[diskNum].getContent());
 			try {
 				diskNum = fat.nextDiskIndex(diskNum);
 			}catch (Exception e) {
@@ -391,21 +456,20 @@ public class FileSystem {
 			
 		}
 		
-		return sBuffer;
+		return sBuffer.toString();
 	} 
-	
 	
 	/**
 	 * 描述：验证给定路径的文件是否已经被打开；
-	 *返回值：打开被返回 true, 否则返回 false;
-	 *参数：beginDiskIndex：文件起始盘块号，pathName：文件所在的路径
+	 *@return：打开被返回 true, 否则返回 false;
+	 *@param：beginDiskIndex：文件起始盘块号，pathName：文件所在的路径
 	 */
 	private boolean judgeOpenFile(String pathName) {
 		
 		//1. 获取文件起始盘块号
 	    int beginDiskIndex = getBeginDiskNum(pathName);
 	    //2. 获取文件名
-	    String[] strArray = pathName.split("/");
+	    String[] strArray = pathName.split("\\\\");
 	    String fileName = strArray[strArray.length - 1];
 	    Iterator<OpenFile> it = openFiles.iterator();
 	    while(it.hasNext()) {
@@ -422,16 +486,15 @@ public class FileSystem {
 	    
 	}
 	
-	
 	/**
 	 * 描述： 为已打开文件新建一个OpenFile对象，并为之初始化
-	 * 返回值： 初始化后的OpenFile实例
-	 * 参数：
+	 * @return： 初始化后的OpenFile实例
+	 * @param：
 	 */
 	private OpenFile initOpenFile(int diskNum, String pathName) {
 		
 		//1. 根据文件路径，获取文件名
-	    String[] strArray = pathName.split("/");
+	    String[] strArray = pathName.split("\\\\");
 	    String fileName = null;
 	    if(strArray.length > 1)
 	    	fileName = strArray[strArray.length - 1];
@@ -464,11 +527,10 @@ public class FileSystem {
 		
 	}
 
-
 	/**
 	 * 描述：检查文件的打开格式
-	 * 返回值： 1表示可读可写方式， 0表示读方式, -1表示文件不存在
-	 * 参数：pathName 文件路径名
+	 * @return： 1表示可读可写方式， 0表示读方式, -1表示文件不存在
+	 * @param：pathName 文件路径名
 	 */
 	private int checkFileAttribute(String pathName) {
 		
@@ -477,8 +539,8 @@ public class FileSystem {
 		if(diskNum == -1) {System.out.println("文件路径为空"); return -1;}
 		if(diskNum != 0) {System.out.println("文件不存在"); return -1; }
 		//2. 获取文件名
-		int length = pathName.split("/").length;
-		String fileName = pathName.split("/")[length - 1];
+		int length = pathName.split("\\\\").length;
+		String fileName = pathName.split("\\\\")[length - 1];
 		int i = 0;
 		for(; i < 8; i++) {
 				//3.获取文件属性，验证文件打开方式	
@@ -495,11 +557,10 @@ public class FileSystem {
 		return 1;
 	}
 	
-	
 	/**
 	 * 描述：将文件内容，存储到磁盘中，并返回占用磁盘盘块的数量
-	 * 返回值：文件占用磁盘盘块的数量,存储失败，返回0
-	 * 参数：pathName 路径名
+	 * @return：文件占用磁盘盘块的数量,存储失败，返回0
+	 * @param：pathName 路径名
 	 *     content 文件内容
 	 */
 	private int storeIntoDisk(String pathName, String content) {
@@ -510,36 +571,39 @@ public class FileSystem {
 			System.out.println("文件路径有误，存储失败");
 			return 0;
 		}
-		
+		//获取磁盘原始内容
+		String originalContent = getFileContent(beginDiskNum);
 		//1. 空闲磁盘块数是否满足
-		int length = (int)(Math.ceil((content.length() % 64))); //文件内容所需要存储的磁盘盘块数
+		int length = (int)(Math.ceil(((double)content.length() / 64))); //文件内容所需要存储的磁盘盘块数
 		int size = fat.getFreeDiskNum();
 		if(length > size) {System.out.println("磁盘空间不足！！！"); return 0;}
 		//2. 释放文件原磁盘空间
 	    boolean flag = freeDiskCapacity(beginDiskNum); //释放文件原有磁盘空间
 	    if(!flag) {System.out.println("磁盘空间释放失败"); return 0;}
-		//3. 给文件分配新的磁盘空间
+		//3. 给文件分配新的磁盘空间  
 	    int i = 0;
+	    int nextDiskNum = 0;
 		for(; i < length - 1; i++) {
 			
-			int nextDiskNum = fat.getFreeDisk();
-			disks[nextDiskNum].setContent(new String(content.substring(64 * i, 64 * ( i + 1) - 1)));
+			disks[beginDiskNum].setContent(content.substring(64 * i, 64 * ( i + 1)));
+			fat.getItem()[beginDiskNum] = -1;
+			nextDiskNum = fat.getFreeDisk();
 			fat.getItem()[beginDiskNum] = nextDiskNum;
 			beginDiskNum = nextDiskNum;
 		}
 		//为最后一块磁盘盘块分配空间
-		int nextDiskNum = fat.getFreeDisk();
-		disks[nextDiskNum].setContent(new String(content.substring(64 * i, content.length() - 1)));
-		fat.getItem()[beginDiskNum] = nextDiskNum;
-		fat.getItem()[nextDiskNum] = -1;
+		disks[beginDiskNum].setContent(content.substring(64 * i, content.length()));
+		fat.getItem()[beginDiskNum] = -1;
+		//更新磁盘容量
+		int usedCapacity = originalContent.length() - content.length();
+		updateDisksCapacity(usedCapacity);
 		return length;
 	}
 
-
 	/**
 	 * 描述： 释放文件所占用的磁盘空间
-	 * 返回值： 释放成功则返回true, 否则返回false;
-	 * 参数： beginDiskNum文件起始盘块编号
+	 * @return： 释放成功则返回true, 否则返回false;
+	 * @param： beginDiskNum文件起始盘块编号
 	 */
 	private boolean freeDiskCapacity(int beginDiskNum) {
 		
@@ -562,21 +626,24 @@ public class FileSystem {
 		return true;
 	}
 	
-	
 	/**
 	 * 描述：获取文件所在的目录项节点
-	 * 返回值： FolderNode实例
-	 * 参数： pathName 文件所在路径节点
+	 * @return： FolderNode实例
+	 * @param： pathName 文件所在路径节点
 	 */
 	private FolderNode getFolderNode(String pathName) {
 		
 		//1. 获取文件工作目录对应
-		int diskNum = pathSearch(pathName);
+		int diskNum = -1;
+		diskNum = pathSearch(pathName);
 		if(diskNum == -1) {System.out.println("文件路径为空"); return null;}
 		if(diskNum != 0) {System.out.println("文件不存在"); return null; }
 		//2. 获取文件名
-		int length = pathName.split("/").length;
-		String fileName = pathName.split("/")[length - 1];
+		StringBuilder buff = new StringBuilder(pathName);
+		buff.append(".");
+		diskNum = pathSearch(buff.toString());
+		int length = pathName.split("\\\\").length;
+		String fileName = pathName.split("\\\\")[length - 1];
 		int i = 0;
 		for(; i < 8; i++) {
 					
@@ -588,11 +655,10 @@ public class FileSystem {
 		return null; 
 	}
 
-	
 	/**
 	 * 描述：将指定已打开文件项从磁盘中移出
-	 * 返回值： 移出成功，则返回true, 否则返回false
-	 * 参数： beginFileDisk 文件起始磁盘号
+	 * @return： 移出成功，则返回true, 否则返回false
+	 * @param： beginFileDisk 文件起始磁盘号
 	 */
 	private boolean removeOpenFile(int beginFileDisk) {
 		
@@ -611,30 +677,92 @@ public class FileSystem {
 
 	/**
 	 * 描述： 将文件的登记目录项从目录中删除
-	 * 返回值：删除成功，则返回true, 否则返回false
-	 * 参数： pathName 文件路径名
+	 * @return：删除成功，则返回true, 否则返回false
+	 * @param： pathName 文件路径名
 	 */
 	private boolean deleFolderNode(String pathName) {
+
+		//验证路径是否有效
+		int diskNum = 0;
+		diskNum = pathSearch(pathName);
+		if(diskNum == -1) {System.out.println("文件路径为空"); return false;}
+		if(diskNum != 0) {System.out.println("文件不存在"); return false; }
+		//1. 获取文件工作目录对应磁盘块号
+		StringBuilder path = new StringBuilder(pathName);
+		path.append(".");
+		diskNum = pathSearch(path.toString());
+		//2. 获取文件名
+		int length = pathName.split("\\\\").length;
+		String fileName = pathName.split("\\\\")[length - 1];
+		int i = 0;
+		for(; i < 8; i++) {
+				//3.获取文件属性，验证文件打开方式	
+			if(fileName.equals(disks[diskNum].getFolderNode()[i].getNodePathName())) {
+				
+				//回收磁盘容量
+				updateDisksCapacity(disks[diskNum].getFolderNode()[i].getNodeLength());
+				//删除文件在目录中的登记项
+				disks[diskNum].getFolderNode()[i] = new FolderNode();
+				return true; 
+				
+			}
+		}
+		//删除失败
+			return false;
+	}
+	
+	/**
+	 * 更新磁盘容量
+	 * @param usedCapacity 负数表示使用了磁盘容量的大小， 正数表示释放了磁盘容量的大小
+	 * @return true 表示磁盘容量充足，更新成功  
+	 *         false 表示磁盘容量不足，更新失败
+	 */
+	private boolean updateDisksCapacity(int usedCapacity) {
 		
-		//1. 获取文件工作目录对应
-				int diskNum = pathSearch(pathName);
-				if(diskNum == -1) {System.out.println("文件路径为空"); return false;}
-				if(diskNum != 0) {System.out.println("文件不存在"); return false; }
-				//2. 获取文件名
-				int length = pathName.split("/").length;
-				String fileName = pathName.split("/")[length - 1];
-				int i = 0;
-				for(; i < 8; i++) {
-						//3.获取文件属性，验证文件打开方式	
-					if(fileName.equals(disks[diskNum].getFolderNode()[i].getNodePathName())) {
-						
-							//删除文件在目录中的登记项
-						disks[diskNum].getFolderNode()[i] = new FolderNode();
-						return true; 
-						
-					}
-				}
-				//删除失败
-				return false;
+		//被使用的磁盘容量
+		int used = this.getDisksUsedCapacity();
+		//未被使用的磁盘容量
+		int free = this.getDiskFreeCapaciyty();
+		if((free + usedCapacity) < 0)
+		{
+			//空闲磁盘容量不足
+			return false;
+		}
+		used -= usedCapacity;
+		free += usedCapacity;
+		this.setDisksUsedCapacity(used);
+		this.setDiskFreeCapaciyty(free);
+		return true;
+	}
+	
+	/**
+	 * 获取文件系统中已用的磁盘容量
+	 * @return 已用的磁盘容量
+	 */
+	public int getDisksUsedCapacity() {
+		return disksUsedCapacity;
+	}
+	
+	public void setDisksUsedCapacity(int disksUsedCapacity) {
+		this.disksUsedCapacity = disksUsedCapacity;
+	}
+
+	/**
+	 * 获取文件系统中未用的磁盘容量
+	 * @return 未用的磁盘容量
+	 */
+	public int getDiskFreeCapaciyty() {
+		return diskFreeCapaciyty;
+	}
+
+	public void setDiskFreeCapaciyty(int diskFreeCapaciyty) {
+		this.diskFreeCapaciyty = diskFreeCapaciyty;
+	}
+	/**
+	 * 获取磁盘总容量
+	 * @return
+	 */
+	public int getDisksTotalCapacity() {
+		return disksTotalCapacity;
 	}
 }
