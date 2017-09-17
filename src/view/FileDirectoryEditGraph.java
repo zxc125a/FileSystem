@@ -19,7 +19,6 @@ import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import model.MyFile;
 import service.FileSystem;
-import util.StringMethod;
 import view.FileDirectoryTreeGraph.MyTreeItem;
 
 /**
@@ -278,20 +277,11 @@ public class FileDirectoryEditGraph extends FlowPane {
 				ImageView emptyIcon = new ImageView(new Image(getClass().getResourceAsStream(emptyFolderIconSrc)));	//空文件夹图标
 				ImageView normalIcon = new ImageView(new Image(getClass().getResourceAsStream(folderIconSrc)));	//标准文件夹图�?
 				//根据是不是叶子结点判断是否为空文件夹，设置不同图�?
-				if (treeItem.isLeaf()) {
+				if (treeItem.getChildList().isEmpty()) {
 					this.icon.setGraphic(emptyIcon);
 				} else {
 					this.icon.setGraphic(normalIcon);
 				}
-				this.treeItem.leafProperty().addListener(e->{
-					if (treeItem.isLeaf()) {
-						//如果是空文件夹，设置空文件夹图标
-						this.icon.setGraphic(emptyIcon);
-					} else {
-						//如果不是空文件夹，设置正常文件夹图标
-						this.icon.setGraphic(normalIcon);
-					}
-				});
 			}
 
 			//设置居中显示

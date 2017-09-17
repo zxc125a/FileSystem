@@ -3,13 +3,6 @@ package view;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.sun.org.apache.bcel.internal.generic.ReturnaddressType;
-
-import model.FolderNode;
-import model.MyFile;
-import service.FileSystem;
-import util.StringMethod;
-import view.FileDirectoryTreeGraph.MyTreeItem;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SelectionMode;
@@ -17,6 +10,10 @@ import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import model.FolderNode;
+import model.MyFile;
+import service.FileSystem;
+import util.StringMethod;
 
 /**
  * 此类为文件目录树视图
@@ -110,7 +107,7 @@ public class FileDirectoryTreeGraph extends TreeView<String> {
 		//创建子结点
 		MyTreeItem childItem = new MyTreeItem(attribute, selectedItem);
 		//添加到子结点集合
-		selectedItem.getChildList().add(childItem);
+		selectedItem.addChild(childItem);
 		//如果是文件夹，则添加到目录树中，并且设置为中
 		if (attribute == MyFile.FOLDER_VALUE || attribute == MyFile.SYSTEM_VALUE) {
 			//添加
@@ -158,6 +155,8 @@ public class FileDirectoryTreeGraph extends TreeView<String> {
 		private FolderNode folderNode;  //目录登记项，记录该文件的信息
 		private List<MyTreeItem> childList;	 //子结点集合
 		private MyTreeItem parentItem;	//父结点
+		private ImageView emptyIcon;	//空文件夹图标
+		private ImageView normalIcon;	//非空文件夹图标
 		private String path;	//当前路径
 //FIXME 
 		public MyTreeItem(int attribute, MyTreeItem parentItem) {
@@ -173,20 +172,10 @@ public class FileDirectoryTreeGraph extends TreeView<String> {
 			//设置图标和名字
 			if (attribute == MyFile.FOLDER_VALUE) {
 				//设置文件夹名字
-				ImageView emptyIcon = new ImageView(new Image(getClass().getResourceAsStream(emptyFolderImageSrc)));
+				emptyIcon = new ImageView(new Image(getClass().getResourceAsStream(emptyFolderImageSrc)));
 				this.setGraphic(emptyIcon);
 				this.setValue("新建文件夹");
-				ImageView normalIcon = new ImageView(new Image(getClass().getResourceAsStream(folderImageSrc)));
-				//监测文件夹变�?
-				this.leafProperty().addListener(e->{
-					if(this.isLeaf()) {
-						//如果是叶子，则图标设为空文件�?
-						this.setGraphic(emptyIcon);
-					} else {
-						//如果包含有子项，则设置为标准图标
-						this.setGraphic(normalIcon);
-					}
-				});
+				normalIcon = new ImageView(new Image(getClass().getResourceAsStream(folderImageSrc)));
 			} else if (attribute == MyFile.FILE_VALUE) {
 				//设置文件名
 				ImageView icon = new ImageView(new Image(getClass().getResourceAsStream(fileImageSrc)));
@@ -215,6 +204,30 @@ public class FileDirectoryTreeGraph extends TreeView<String> {
 		//获取子结点集合
 		public List<MyTreeItem> getChildList() {
 			return this.childList;
+		}
+		
+		/**
+		 * 添加子结点到集合
+		 * @param child
+		 */
+		public void addChild(MyTreeItem child) {
+			this.childList.add(child);
+			//更新图标
+			if (this.attribute == MyFile.FOLDER_VALUE) {
+				this.setGraphic(normalIcon);
+			}
+		}
+		
+		/**
+		 * 添加子结点到集合
+		 * @param child
+		 */
+		public void removeChild(MyTreeItem child) {
+			this.childList.remove(child);
+			//更新图标
+			if (this.attribute == MyFile.FOLDER_VALUE && this.childList.isEmpty()) {
+				this.setGraphic(emptyIcon);
+			}
 		}
 		
 		//获取父结点

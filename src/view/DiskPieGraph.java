@@ -97,11 +97,11 @@ public class DiskPieGraph extends Pane {
 		HBox rateBox = new HBox();
 		DecimalFormat format = new DecimalFormat("#00.00");
 		//已分配比�?
-		Label allocatedRate = new Label(String.valueOf(format.format(allocatedValue/totalValue*100) + "%"));
+		Label allocatedRate = new Label(String.valueOf(format.format(allocatedValue * 100 / totalValue) + "%"));
 		allocatedRate.setTextFill(Color.valueOf("#77AAFF"));
 		allocatedRate.setFont(Font.font("Arial", 14));
 		//未分配比�?
-		Label freeRate = new Label(String.valueOf(format.format((totalValue - allocatedValue)/totalValue * 100)+"%"));
+		Label freeRate = new Label(String.valueOf(format.format((totalValue - allocatedValue) * 100 / totalValue)+"%"));
 		freeRate.setTextFill(Color.valueOf("#A0A0A0"));
 		freeRate.setFont(Font.font("Arial", 14));
 		rateBox.getChildren().addAll(allocatedRate, freeRate);
@@ -134,8 +134,8 @@ public class DiskPieGraph extends Pane {
 				//扇区上的比例隐藏
 				rateInfo.setVisible(false);
 				//图例上比例更�?
-				freeRate.setText(String.valueOf(format.format((totalValue - allocatedValue)/totalValue * 100)+"%"));
-				allocatedRate.setText(String.valueOf(format.format(allocatedValue/totalValue*100) + "%"));
+				freeRate.setText(String.valueOf(format.format((totalValue - allocatedValue) * 100 / totalValue)+"%"));
+				allocatedRate.setText(String.valueOf(format.format(allocatedValue * 100 / totalValue) + "%"));
 			});
 		}
 		

@@ -3,13 +3,6 @@ package view;
 import java.util.ArrayList;
 import java.util.List;
 
-import model.MyFile;
-import service.FileSystem;
-import sun.applet.Main;
-//import sun.applet.Main;
-import util.StringMethod;
-import view.FileDirectoryEditGraph.FileDirectoryItem;
-import view.FileDirectoryTreeGraph.MyTreeItem;
 //import graph.FileDirectoryEditGraph.FileDirectoryItem;
 //import graph.FileDirectoryTreeGraph.MyTreeItem;
 import javafx.geometry.Insets;
@@ -25,6 +18,12 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import model.MyFile;
+import service.FileSystem;
+//import sun.applet.Main;
+import util.StringMethod;
+import view.FileDirectoryEditGraph.FileDirectoryItem;
+import view.FileDirectoryTreeGraph.MyTreeItem;
 
 /**
  * 此类为文件管理视图，包含了路径显示，文件目录树和文件视图
@@ -153,7 +152,7 @@ public class FileManagerGraph extends BorderPane {
 		fileSystem.deleFile(path); 
 		//从子结点集合中删除当前结�?
 		MyTreeItem parentItem = (MyTreeItem) selectedItem.getParent();
-		parentItem.getChildList().remove(selectedItem);
+		parentItem.removeChild(selectedItem);
 		if (selectedItem == this.currentItem) {
 			//如果删除的是当前的文件夹，更新编辑窗口和路径，路径为当前路径的上�?层路�?
 			//更新编辑窗口
@@ -194,7 +193,7 @@ public class FileManagerGraph extends BorderPane {
 			MyTreeItem selectedItem = (MyTreeItem) this.treeGraph.getSelectionModel().getSelectedItem();
 			selectedItem.getPath();  
 			//将结点加入子结点集合  
-			this.currentItem.getChildList().add(item.getTreeItem());
+			this.currentItem.addChild(item.getTreeItem());
 			//重新渲染主界面
 			MainFrame.paintMainFrame();
 		});
@@ -202,7 +201,7 @@ public class FileManagerGraph extends BorderPane {
 			//编辑窗口添加文件�?
 			FileDirectoryItem item = this.addItemToEditGraph(MyFile.FOLDER_VALUE);
 			//将结点加入子结点集合
-			this.currentItem.getChildList().add(item.getTreeItem());
+			this.currentItem.addChild(item.getTreeItem());
 			//目录树添加文件夹结点
 			this.currentItem.getChildren().add(item.getTreeItem());
 			//重新渲染主界面
@@ -242,7 +241,7 @@ public class FileManagerGraph extends BorderPane {
 			//删除文件系统中的对应文件的数据
 			fileSystem.deleFile(path); 
 			//从子结点集合中删除此结点
-			this.currentItem.getChildList().remove(treeItem);
+			this.currentItem.removeChild(treeItem);
 			//如果是文件夹，从目录树种删除相关联的结点
 			if (treeItem.getAttribute() == MyFile.FOLDER_VALUE) {
 				this.currentItem.getChildren().remove(item.getTreeItem());
